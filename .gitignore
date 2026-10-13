@@ -25,3 +25,7 @@ replay_pid*
 
 .idea
 .gradle
+graphify-out
+.agents
+*/build
+.obsidian

@@ -1,4 +1,6 @@
 rootProject.name= 'surtek-api'
 
 include 'surtek-application'
+include 'surtek-service'
+include 'surtek-security'
 

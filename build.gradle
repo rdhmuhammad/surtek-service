@@ -29,18 +29,26 @@ subprojects {
     }
 
     dependencies {
+
+        // web server
         implementation('org.springframework.boot:spring-boot-starter-undertow')
         implementation 'org.springframework.boot:spring-boot-starter-web'
+        implementation 'org.springframework.boot:spring-boot-starter-security'
+
+
+        // database
         implementation "org.springframework.boot:spring-boot-starter-data-jpa"
         implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
-
         implementation 'org.postgresql:postgresql'
         implementation("io.r2dbc:r2dbc-postgresql:0.8.10.RELEASE")
 
+        // data object & validation
         implementation 'org.springframework.boot:spring-boot-starter-validation'
         implementation 'org.projectlombok:lombok'
         annotationProcessor 'org.projectlombok:lombok'
         implementation group: 'org.modelmapper', name: 'modelmapper', version: '2.3.8'
+        implementation 'commons-fileupload:commons-fileupload:1.4'
+        implementation 'org.json:json:20230227'
 
         // excel
         implementation 'org.apache.poi:poi:5.2.3'

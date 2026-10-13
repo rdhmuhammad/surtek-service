@@ -1,0 +1,25 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.sabarceria.surtek'
+version = 'unspecified'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(':surtek-application')
+
+    // JWT (signed + verified tokens). impl/jackson are runtime-only by design of jjwt.
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+test {
+    useJUnitPlatform()
+}

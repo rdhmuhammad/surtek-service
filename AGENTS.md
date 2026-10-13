@@ -1,0 +1,141 @@
+# LLM Wiki
+
+A personal knowledge base maintained by Claude Code.  
+Based on Andrej Karpathy's LLM Wiki pattern.
+
+
+## Purpose
+
+This wiki is a structured, interlinked knowledge base for working with this codebase.
+- Agent AI maintains the wiki
+- Human curates sources (folder raw), ask question and guides the analysis
+
+## Folder Structure
+
+| Folder                                      | Note                                               |
+| ------------------------------------------- | -------------------------------------------------- |
+| document/raw                                | source documents (immutable -- never modify these) |
+| document/wiki                               | markdown pages maintained by agentic ai            |
+| document/wiki/patterns                      | implementation and architectural patterns         |
+| document/wiki/patterns/<module>             | related pattern pages grouped by module           |
+| document/wiki/decisions                     | recorded technical decisions                      |
+| document/wiki/concepts                      | reusable domain and codebase concepts             |
+| document/wiki/index.md                      | grouped table of contents for the entire wiki     |
+| document/wiki/log.md                         | append-only record of all operations              |
+| document/wiki/tasks                          | task management folder                             |
+| document/wiki/tasks/backlog.md               | living checklist of pending / in-progress / done tasks |
+## Ingest: Raw -> Wiki
+
+When a source added to `document/raw` and asks you to ingest it:
+1. Read the full source document
+2. Discuss key takeaways with the user before writing anything
+3. Create a summary page in the appropriate category folder, using the source's topic and module. For implementation examples, use `document/wiki/patterns/<module>/`.
+4. Create or update concept pages in `document/wiki/concepts/` for major reusable ideas or entities.
+5. Create decision pages in `document/wiki/decisions/` for explicit technical choices and rationale.
+6. Add path-qualified wiki-links (for example, `[[patterns/controller/example-of-module-controller]]`) to connect related pages.
+7. Update `document/wiki/index.md` with grouped sections and one-line descriptions for every page.
+8. Append an entry to `document/wiki/log.md` with the date, source name, and what changed.
+A single source may touch 10-15 wiki pages. That is normal.
+
+## Page format
+
+Every wiki page should follow this structure
+
+```markdown
+    
+# Page Title
+    
+**Summary**: One to two sentences describing this page.
+**Sources**: List of raw source files this page draws from.
+**Last updated**: Date of most recent update.
+    
+---
+    
+Main content goes here. Use clear headings and short paragraphs.
+Link to related concepts using [[wiki-links]] throughout the text.
+
+## Related pages
+
+- [[related-concept-1]]
+- [[related-concept-2]]    
+```
+
+## Question Answering
+
+When user ask a question:
+1. Read `document/wiki/index.md` first to find relevant pages
+2. Read those pages and synthesized an answer
+3. If answer is not in wiki, note to chat about that while resolving the question
+4. If answer is valuable, offer to save it as a new wiki page
+
+Good answers should be filed back into the wiki so they compound over time.
+
+## Lint
+
+When the user asks you to lint or audit the wiki:
+- Check for contradictions between pages
+- Find orphan pages (no inbound links from other pages)
+- Identify concepts mentioned in pages that lack their own page
+- Flag claims that may be outdated based on newer sources
+- Check that all pages follow the page format above
+- Check that every wiki page is in the correct category/module folder and that index links match its path
+- Report findings as a numbered list with suggested fixes
+
+## Task Management
+
+Tasks are **authored by the user** as markdown files inside `document/raw/tasks/`.  
+`document/wiki/tasks/backlog.md` is the living progress tracker maintained by the agent.
+
+### Task source template
+
+Every raw task file in `document/raw/tasks/` follows this structure:
+
+```markdown
+---
+- code: short unique identifier (e.g. TASK-001)
+- dependency: code(s) of tasks that must be completed first
+- title: human-readable task name
+- files: list of files likely involved
+---
+
+## Acceptance Criteria
+- What must be true for this task to be considered done.
+
+## Flow
+- Step-by-step description of what needs to happen.
+
+## Problem Statement *(optional)*
+- Context or motivation for the task.
+```
+
+### Agent behavior
+
+**Executing a task** — when the user says "execute task `<code>`" or "run task `<title>`":
+1. Find and read the corresponding file in `document/raw/tasks/`.
+2. Move the task to **In Progress** in `backlog.md`.
+3. Follow the **Flow** and satisfy the **Acceptance Criteria**, respecting any **Dependency** order.
+4. When done, move the task to **Done** in `backlog.md`.
+5. Append an entry to `document/wiki/log.md`.
+
+**Updating status manually** — when the user says "add task X to todo / in-progress / done":
+1. Add or move the referenced task (by code or title) to the correct section in `backlog.md`.
+2. Keep entries concise — one line per task.
+
+**Backlog format**:
+```markdown
+- [ ] TASK-001 · Title here   ← Todo
+- [~] TASK-002 · Title here   ← In Progress
+- [x] TASK-003 · Title here   ← Done
+```
+
+Preserve existing structure: **In Progress** → **Todo** → **Done**.  
+Always append an entry to `document/wiki/log.md` after any backlog change.
+
+## Rules
+- Never modify anything in the `document/raw` folder (including `document/raw/tasks/` — task files are user-authored)
+- Always update `document/wiki/index.md` and `document/wiki/log.md` after changes
+- Keep page names lowercase with hyphens (e.g. `machine-learning.md`)
+- Keep category and module folder names lowercase with hyphens
+- Keep `index.md` and `log.md` at the wiki root; category indexes may exist inside category folders
+- Write in clear, plain language
+- When uncertain about how to categorize something, ask the user
