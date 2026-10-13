@@ -1,0 +1,22 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'com.sabarceria.surtek'
+version = '0.0.1'
+
+dependencies {
+
+}
+
+// Ensure that the jar task creates the proper JAR without the -plain suffix
+tasks.named('jar') {
+    archiveBaseName = project.name
+    archiveVersion = project.version
+    archiveClassifier = ''
+}
+
+
+test {
+    useJUnitPlatform()
+}

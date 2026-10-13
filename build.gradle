@@ -1,0 +1,55 @@
+plugins {
+    id 'org.springframework.boot' version '2.7.17' apply false
+    id 'io.spring.dependency-management' version '1.0.15.RELEASE'
+}
+
+allprojects {
+    apply plugin: 'io.spring.dependency-management'
+    group 'com.sabarceria.surtek'
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'io.spring.dependency-management'
+
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.boot:spring-boot-dependencies:2.7.17"
+        }
+    }
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+        withSourcesJar()
+    }
+
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        implementation('org.springframework.boot:spring-boot-starter-undertow')
+        implementation 'org.springframework.boot:spring-boot-starter-web'
+        implementation "org.springframework.boot:spring-boot-starter-data-jpa"
+        implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
+
+        implementation 'org.postgresql:postgresql'
+        implementation("io.r2dbc:r2dbc-postgresql:0.8.10.RELEASE")
+
+        implementation 'org.springframework.boot:spring-boot-starter-validation'
+        implementation 'org.projectlombok:lombok'
+        annotationProcessor 'org.projectlombok:lombok'
+        implementation group: 'org.modelmapper', name: 'modelmapper', version: '2.3.8'
+
+        // excel
+        implementation 'org.apache.poi:poi:5.2.3'
+        implementation 'org.apache.poi:poi-ooxml:5.2.3'
+
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+
+}
