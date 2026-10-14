@@ -7,8 +7,7 @@ import java.lang.annotation.*;
 /**
  * Marks a controller endpoint as exempt from one or more {@link BaseFilter} implementations.
  * <p>
- * Replaces the old fixed {@code @AllowAuth} / {@code @AllowSignature} pair: because the value is
- * a filter <b>type</b>, it automatically follows whatever filters are registered in the
+ * Because the value is a filter <b>type</b>, it automatically follows whatever filters are registered in the
  * {@link com.sabarceria.surtek.filter.FilterRegistry}. Adding a new filter needs no new annotation.
  * <p>
  * The declaring controller must be annotated with {@link EnableByPassSecurity}.

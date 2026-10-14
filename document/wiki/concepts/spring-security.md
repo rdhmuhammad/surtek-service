@@ -2,7 +2,7 @@
 
 **Summary**: Explains the dynamic filter chain security architecture, FilterRegistry, BaseFilter contract, endpoint bypass mechanisms, and RFC-compliant JWT with single-use refresh token rotation.  
 **Sources**: `surtek-security/` codebase  
-**Last updated**: 2026-10-13  
+**Last updated**: 2026-10-14  
 
 ---
 
@@ -35,7 +35,7 @@ flowchart TD
 
 1. **Dynamic Filter Pipeline**: Any Spring component extending `BaseFilter` is automatically registered into the filter chain in the order specified by `@Order`.
 2. **Single Extension Point (`onFilterChain`)**: Filter authors only implement `onFilterChain`. Common infrastructure like WebSocket upgrade skips, path-level exemption checks, error resolution, and downstream chain tracking are sealed within `BaseFilter`.
-3. **Type-Safe Dynamic Bypass**: Endpoints can exempt themselves from specific filters using filter class references (e.g., `@AllowAuth`, `@AllowSignature`, `@BypassFilter`).
+3. **Type-Safe Dynamic Bypass**: Endpoints can exempt themselves from specific filters using filter class references via `@BypassFilter`.
 4. **RFC-Compliant & Secure JWT**: Separate HMAC keys for access and refresh tokens, `token_use` claim checks, single-use refresh token rotation, and replay detection (revoking all sessions if an already-used refresh token is submitted).
 
 ---
@@ -76,10 +76,8 @@ Located in `com.sabarceria.surtek.config.SecurityConfig`.
 ### 4. `FilterBypassRegistry`
 Located in `com.sabarceria.surtek.filter.FilterBypassRegistry`.
 - Scans all controller beans marked with `@EnableByPassSecurity`.
-- Inspects route annotations (`@RequestMapping`, `@GetMapping`, `@PostMapping`, etc.) combined with bypass annotations:
-  - `@AllowAuth`: Bypasses `JwtAuthenticationFilter` (or specified filters).
-  - `@AllowSignature`: Bypasses signature validation filters.
-  - `@BypassFilter`: Bypasses explicitly specified filter classes.
+- Inspects route annotations (`@RequestMapping`, `@GetMapping`, `@PostMapping`, etc.) combined with `@BypassFilter`:
+  - `@BypassFilter`: Bypasses explicitly specified filter classes (e.g., `JwtAuthenticationFilter.class`, or all filters when no specific filter class is given).
 - Maintains runtime `AntPathRequestMatcher` mappings per filter class.
 
 ### 5. JWT Infrastructure (`com.sabarceria.surtek.jwt`)
@@ -189,14 +187,13 @@ public class CustomTenantValidationFilter extends BaseFilter {
 ```
 
 ### 2. Exempting / Whitelisting Endpoints
-Annotate the controller with `@EnableByPassSecurity` and use `@AllowAuth`, `@AllowSignature`, or `@BypassFilter`:
+Annotate the controller with `@EnableByPassSecurity` and use `@BypassFilter`:
 
 ```java
 package com.sabarceria.surtek.controller;
 
 import com.sabarceria.surtek.filter.JwtAuthenticationFilter;
 import com.sabarceria.surtek.filter.CustomTenantValidationFilter;
-import com.sabarceria.surtek.model.annotation.AllowAuth;
 import com.sabarceria.surtek.model.annotation.BypassFilter;
 import com.sabarceria.surtek.model.annotation.EnableByPassSecurity;
 import org.springframework.web.bind.annotation.*;
@@ -208,7 +205,7 @@ public class SampleController {
 
     // 1. Completely bypass JWT Authentication (Public endpoint)
     @GetMapping("/public/info")
-    @AllowAuth
+    @BypassFilter(JwtAuthenticationFilter.class)
     public String getPublicInfo() {
         return "Public Data";
     }
@@ -241,9 +238,10 @@ Use `JwtTokenService` in the authentication controller/service:
 ```java
 package com.sabarceria.surtek.controller;
 
+import com.sabarceria.surtek.filter.JwtAuthenticationFilter;
 import com.sabarceria.surtek.jwt.JwtTokenService;
 import com.sabarceria.surtek.jwt.TokenPair;
-import com.sabarceria.surtek.model.annotation.AllowAuth;
+import com.sabarceria.surtek.model.annotation.BypassFilter;
 import com.sabarceria.surtek.model.annotation.EnableByPassSecurity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -262,7 +260,7 @@ public class AuthController {
     private final JwtTokenService jwtTokenService;
 
     @PostMapping("/login")
-    @AllowAuth // Public endpoint
+    @BypassFilter(JwtAuthenticationFilter.class) // Public endpoint
     public TokenPair login(@RequestBody LoginRequest request) {
         Authentication auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
@@ -325,7 +323,92 @@ public class SecurityStoreConfig {
 
 ---
 
+## OAuth2 Integration Combined with JWT Refresh Tokens
+
+`surtek-security` supports federated sign-in with **Google**, **GitHub**, and **Discord** alongside traditional, non-OAuth authentication (e.g. username/password). Both paths yield the identical RFC-compliant `TokenPair` issued by `JwtTokenService` and use the same `/auth/refresh` rotation endpoint.
+
+```mermaid
+flowchart TD
+    subgraph "Authentication Options"
+        DirectLogin["Traditional Login (POST /auth/login)"]
+        GoogleOAuth["Google OAuth2 (/oauth2/authorization/google)"]
+        GitHubOAuth["GitHub OAuth2 (/oauth2/authorization/github)"]
+        DiscordOAuth["Discord OAuth2 (/oauth2/authorization/discord)"]
+    end
+
+    DirectLogin --> AuthManager["AuthenticationManager / DaoAuthenticationProvider"]
+    GoogleOAuth --> OAuthFlow["Spring Security OAuth2 Login"]
+    GitHubOAuth --> OAuthFlow
+    DiscordOAuth --> OAuthFlow
+
+    OAuthFlow --> SuccessHandler["OAuth2AuthenticationSuccessHandler"]
+    SuccessHandler --> Provisioner["OAuth2UserProvisioner"]
+    Provisioner --> TokenService["JwtTokenService.issue(userDetails)"]
+    AuthManager --> TokenService
+
+    TokenService --> Result["TokenPair (access_token + refresh_token)"]
+    Result --> ClientApp["Frontend / Client Application"]
+    ClientApp --> ProtectedReq["Protected APIs (Authorization: Bearer <access_token>)"]
+    ClientApp --> RefreshReq["Rotate Session (POST /auth/refresh)"]
+```
+
+### 1. Dual Authentication: OAuth vs Non-OAuth
+
+- **Non-OAuth Signing (Traditional Login)**:
+  - Public endpoint annotated with `@BypassFilter(JwtAuthenticationFilter.class)`.
+  - Authenticates via `AuthenticationManager` / `DaoAuthenticationProvider`.
+  - Mints `TokenPair` with `jwtTokenService.issue(userDetails)`.
+- **OAuth2 Signing (Google, GitHub, Discord)**:
+  - User visits `/oauth2/authorization/{provider}` (`google`, `github`, or `discord`).
+  - Browser goes through OAuth consent, redirects back to `/login/oauth2/code/{provider}`.
+  - `OAuth2AuthenticationSuccessHandler` extracts normalized attributes via `OAuth2UserInfoFactory`.
+  - User is loaded or provisioned via `OAuth2UserProvisioner` (default: `DefaultOAuth2UserProvisioner`).
+  - Mints the exact same `TokenPair` using `jwtTokenService.issue(userDetails)`.
+  - Delivers tokens via frontend redirect (`?access_token=...&refresh_token=...`) or direct JSON response.
+- **Unified Token Refresh**:
+  - Regardless of whether the user logged in via Google, GitHub, Discord, or password, `POST /auth/refresh` rotates the session identically.
+
+### 2. Stateless OAuth2 Request Storage
+Because APIs use `SessionCreationPolicy.STATELESS`, the authorization request state and target redirect URI are held in short-lived HTTP cookies (`HttpCookieOAuth2AuthorizationRequestRepository`), avoiding server-side sessions.
+
+### 3. Configuration (`application.yml`)
+
+```yaml
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope: openid, profile, email
+          github:
+            client-id: ${GITHUB_CLIENT_ID}
+            client-secret: ${GITHUB_CLIENT_SECRET}
+            scope: read:user, user:email
+          discord:
+            client-id: ${DISCORD_CLIENT_ID}
+            client-secret: ${DISCORD_CLIENT_SECRET}
+            scope: identify, email
+
+surtek:
+  security:
+    oauth2:
+      redirect-uri: http://localhost:3000/oauth2/callback # Target frontend redirect URL
+      authorized-redirect-uris:
+        - http://localhost:3000/oauth2/callback
+```
+
+> [!NOTE]
+> Discord OAuth2 provider endpoints (`/oauth2/authorize`, `/api/oauth2/token`, `/api/users/@me`) are automatically wired by `OAuth2Configuration` when `discord` is declared under `registration`, eliminating repetitive endpoint configurations.
+
+---
+
 ## Related pages
 
+- [[patterns/security/oauth-token-preparation]]
 - [[index]]
 - [[tasks/backlog]]
+
+

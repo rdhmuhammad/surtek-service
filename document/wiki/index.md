@@ -2,7 +2,7 @@
 
 **Summary**: Master table of contents and navigation index for the LLM Wiki.  
 **Sources**: N/A  
-**Last updated**: 2026-10-13  
+**Last updated**: 2026-10-14  
 
 ---
 
@@ -14,7 +14,9 @@
 
 ## Patterns
 
-*No pattern pages yet.*
+### Security
+
+- [[patterns/security/oauth-token-preparation]] - Step-by-step operational guide for registering OAuth apps, configuring credentials and redirect URIs, and generating tokens for Google, Discord, and GitHub.
 
 ## Decisions
 

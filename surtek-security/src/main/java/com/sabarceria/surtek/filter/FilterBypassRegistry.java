@@ -1,7 +1,5 @@
 package com.sabarceria.surtek.filter;
 
-import com.sabarceria.surtek.model.annotation.AllowAuth;
-import com.sabarceria.surtek.model.annotation.AllowSignature;
 import com.sabarceria.surtek.model.annotation.BypassFilter;
 import com.sabarceria.surtek.model.annotation.EnableByPassSecurity;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +25,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * Holds, per filter type, the request matchers that are exempt from that filter.
  * <p>
- * Populated from {@link BypassFilter}, {@link AllowAuth}, and {@link AllowSignature} annotations
+ * Populated from {@link BypassFilter} annotations
  * on controllers annotated with {@link EnableByPassSecurity}, as well as programmatic registration via
  * {@link #bypass(Class, String, HttpMethod)}.
  */
@@ -90,6 +88,10 @@ public class FilterBypassRegistry implements SmartInitializingSingleton {
 
     @Override
     public void afterSingletonsInstantiated() {
+        // OAuth2 authorization and callback endpoints never require JWT bearer tokens
+        bypass(JwtAuthenticationFilter.class, "/oauth2/**", null);
+        bypass(JwtAuthenticationFilter.class, "/login/oauth2/**", null);
+
         applicationContext.getBeansWithAnnotation(EnableByPassSecurity.class)
                 .values()
                 .forEach(this::registerController);
@@ -143,22 +145,6 @@ public class FilterBypassRegistry implements SmartInitializingSingleton {
             } else {
                 result.addAll(Arrays.asList(targets));
             }
-        }
-
-        AllowAuth allowAuth = AnnotatedElementUtils.findMergedAnnotation(method, AllowAuth.class);
-        if (allowAuth != null) {
-            Class<? extends BaseFilter>[] targets = allowAuth.value().length > 0 ? allowAuth.value() : allowAuth.filters();
-            if (targets.length == 0) {
-                result.add(JwtAuthenticationFilter.class);
-            } else {
-                result.addAll(Arrays.asList(targets));
-            }
-        }
-
-        AllowSignature allowSignature = AnnotatedElementUtils.findMergedAnnotation(method, AllowSignature.class);
-        if (allowSignature != null) {
-            Class<? extends BaseFilter>[] targets = allowSignature.value().length > 0 ? allowSignature.value() : allowSignature.filters();
-            result.addAll(Arrays.asList(targets));
         }
 
         return result;

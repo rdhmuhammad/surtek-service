@@ -23,6 +23,12 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 
+import com.sabarceria.surtek.oauth2.HttpCookieOAuth2AuthorizationRequestRepository;
+import com.sabarceria.surtek.oauth2.OAuth2AuthenticationFailureHandler;
+import com.sabarceria.surtek.oauth2.OAuth2AuthenticationSuccessHandler;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -47,6 +53,14 @@ public class SecurityConfig {
     private final BaseUserSecurityService userSecurityService;
 
     private final FilterRegistry filterRegistry;
+
+    private final ObjectProvider<ClientRegistrationRepository> clientRegistrationRepositoryProvider;
+
+    private final ObjectProvider<OAuth2AuthenticationSuccessHandler> oauth2SuccessHandlerProvider;
+
+    private final ObjectProvider<OAuth2AuthenticationFailureHandler> oauth2FailureHandlerProvider;
+
+    private final ObjectProvider<HttpCookieOAuth2AuthorizationRequestRepository> cookieAuthorizationRequestRepositoryProvider;
 
     @Bean
     public CorsConfiguration corsConfiguration() {
@@ -88,6 +102,19 @@ public class SecurityConfig {
         for (BaseFilter filter : filterRegistry.getFilters()) {
             http.addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class);
         }
+
+        ClientRegistrationRepository clientRegistrationRepository = clientRegistrationRepositoryProvider.getIfAvailable();
+        if (clientRegistrationRepository != null) {
+            http.oauth2Login(oauth2 -> {
+                oauth2.clientRegistrationRepository(clientRegistrationRepository);
+                cookieAuthorizationRequestRepositoryProvider.ifAvailable(repo ->
+                        oauth2.authorizationEndpoint().authorizationRequestRepository(repo)
+                );
+                oauth2SuccessHandlerProvider.ifAvailable(oauth2::successHandler);
+                oauth2FailureHandlerProvider.ifAvailable(oauth2::failureHandler);
+            });
+        }
+
         return http.build();
     }
 

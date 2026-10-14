@@ -6,7 +6,6 @@ import com.sabarceria.surtek.jwt.InMemoryRefreshTokenStore;
 import com.sabarceria.surtek.jwt.JwtProperties;
 import com.sabarceria.surtek.jwt.JwtTokenService;
 import com.sabarceria.surtek.jwt.TokenPair;
-import com.sabarceria.surtek.model.annotation.AllowAuth;
 import com.sabarceria.surtek.model.annotation.BypassFilter;
 import com.sabarceria.surtek.model.annotation.EnableByPassSecurity;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,7 +73,7 @@ class FilterRegistryTest {
     static class TestController {
 
         @GetMapping("/public")
-        @AllowAuth // Bypass JwtAuthenticationFilter
+        @BypassFilter(JwtAuthenticationFilter.class)
         public String publicEndpoint() {
             return "public";
         }
@@ -173,13 +172,13 @@ class FilterRegistryTest {
     }
 
     @Test
-    void testAllowAuthBypassesJwtAuthenticationFilter() throws Exception {
+    void testBypassFilterBypassesJwtAuthenticationFilter() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/public");
         request.setServletPath("/api/public");
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();
 
-        // Request has no Bearer token, but @AllowAuth should bypass JwtAuthenticationFilter
+        // Request has no Bearer token, but @BypassFilter should bypass JwtAuthenticationFilter
         jwtAuthenticationFilter.doFilter(request, response, chain);
 
         // Status remains 200 (not rejected)
